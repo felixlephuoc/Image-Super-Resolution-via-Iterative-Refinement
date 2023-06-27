@@ -71,8 +71,7 @@ class WorkingContext():
 def prepare_process_worker(wctx, videos_path_subset):
     for video_path in videos_path_subset:
         video_id = os.path.basename(video_path)
-        #for file in glob(os.path.join(video_path, '*.jpg')):
-        for file in Path(video_path).rglob('*.jpg'):
+        for file in Path(video_path).rglob('*.png'):
             if not file.is_file():
                 continue
             i, imgs = wctx.resize_fn(file)
@@ -115,8 +114,6 @@ def prepare(frame_path, out_path, n_worker, n_frame, sizes=(16, 128), resample=I
                         resample=resample, lmdb_save=lmdb_save)
     
     videos_path = [os.path.join(frame_path, video_id) for video_id in os.listdir(frame_path) if os.path.isdir(os.path.join(frame_path, video_id))]
-    #files = [p for p in Path(
-    #    '{}'.format(img_path)).glob(f'**/*')]
 
     if not lmdb_save: 
         os.makedirs(out_path, exist_ok=True)
@@ -189,6 +186,7 @@ if __name__ == '__main__':
     parser.add_argument('--frames_path', type=str,
                         default='sample_frames',help="Path to the video_id directories containing extracted frames")
     parser.add_argument('--n_frames', type=int, default=3, help="Number of frames extracted from each video")
+    parser.add_argument('--interval', type=float, default=1.0, help="The temporal stride, or temporal distance between extracted frames")
     parser.add_argument('--out', '-o', type=str,
                         default='./dataset/celebahq')
 
@@ -204,6 +202,7 @@ if __name__ == '__main__':
     resample = resample_map[args.resample]
     sizes = [int(s.strip()) for s in args.size.split(',')]
 
-    args.out = '{}_{}_{}'.format(args.out, sizes[0], sizes[1])
+    args.out = '{}_{}_frames_{}_seconds_{}_{}'.format(args.out, args.n_frames, args.interval, sizes[0], sizes[1])
+    #print(args.out)
     prepare(args.frames_path, args.out, args.n_worker, args.n_frames,
             sizes=sizes, resample=resample, lmdb_save=args.lmdb)
