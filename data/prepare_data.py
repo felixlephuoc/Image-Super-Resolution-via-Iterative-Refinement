@@ -187,8 +187,9 @@ if __name__ == '__main__':
                         default='sample_frames',help="Path to the video_id directories containing extracted frames")
     parser.add_argument('--n_frames', type=int, default=3, help="Number of frames extracted from each video")
     parser.add_argument('--interval', type=float, default=1.0, help="The temporal stride, or temporal distance between extracted frames")
+    parser.add_argument('--split', type=str, choices=['train', 'val'], help="create train or validation dataset", default='train')
     parser.add_argument('--out', '-o', type=str,
-                        default='./dataset/celebahq')
+                        default='./dataset/celebvhq')
 
     parser.add_argument('--size', type=str, default='64,512')
     parser.add_argument('--n_worker', type=int, default=3)
@@ -202,7 +203,7 @@ if __name__ == '__main__':
     resample = resample_map[args.resample]
     sizes = [int(s.strip()) for s in args.size.split(',')]
 
-    args.out = '{}_{}_frames_{}_seconds_{}_{}'.format(args.out, args.n_frames, args.interval, sizes[0], sizes[1])
+    args.out = '{}_{}_frames_{}_seconds_{}_{}_{}'.format(args.out, args.n_frames, args.interval, sizes[0], sizes[1], args.split)
     #print(args.out)
     prepare(args.frames_path, args.out, args.n_worker, args.n_frames,
             sizes=sizes, resample=resample, lmdb_save=args.lmdb)
