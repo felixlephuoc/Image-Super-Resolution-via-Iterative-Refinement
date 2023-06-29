@@ -3,6 +3,8 @@ import torch
 import torchvision
 import random
 import numpy as np
+from PIL import Image
+from torchvision.transforms.functional import hflip
 
 IMG_EXTENSIONS = ['.jpg', '.JPG', '.jpeg', '.JPEG',
                   '.png', '.PNG', '.ppm', '.PPM', '.bmp', '.BMP']
@@ -81,3 +83,66 @@ def transform_augment(img_list, split='val', min_max=(0, 1)):
         imgs = torch.unbind(imgs, dim=0)
     ret_img = [img * (min_max[1] - min_max[0]) + min_max[0] for img in imgs]
     return ret_img
+
+################## Process Frames ##############################
+
+def get_paths_from_frames(path):
+    """
+    Get a list of file paths for all valid frames files in a directory and its subdirectories.
+    """
+    assert os.path.isdir(path), '{:s} is not a valid directory'.format(path)
+
+    frame_paths = []  
+
+    for dirpath, _ , _ in sorted(os.walk(path)):
+        for path, _, fnames in sorted(os.walk(dirpath)): 
+            frames = []
+            for fname in sorted(fnames):
+                # Check if the file has an image file extension
+                if is_image_file(fname):
+                    img_path = os.path.join(path, fname)
+                    frames.append(img_path)
+        frame_paths.append(frames)
+    return frame_paths
+
+
+def read_concat(frames_paths, n_frames=3, high_resolution=False):
+    """
+    Reads and concatenate a list of frames.
+    """
+
+    if len(frames_paths) < n_frames:
+        return None
+    
+    tensors = []
+
+    # Select only middle frame in the case of High Resolution
+    if high_resolution:
+        middle_frame = frames_paths[len(frames_paths)//2]
+        return totensor(Image.open(middle_frame).convert("RGB"))
+              
+    for frame_path in frames_paths:
+        try:
+            img = Image.open(frame_path).convert("RGB")
+            tensor = totensor(img)
+            tensors.append(tensor)
+        except (OSError, IOError):
+            return None
+
+    concatenated_tensor = torch.cat(tensors, dim=0)
+
+    return concatenated_tensor
+
+
+def transform_augment_frames(frames_list, split='val', min_max=(0, 1), _hflip=True):
+    """
+    Applies data augmentation transformations to a list of frames.
+    """
+    
+    # data augmentation for training set
+    if split == 'train':
+        if _hflip and random.random() < 0.5:
+            frames_list = [hflip(frame) for frame in frames_list]
+    # normalization
+    ret_frames = [frame * (min_max[1] - min_max[0]) + min_max[0] for frame in frames_list]
+    return ret_frames
