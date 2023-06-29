@@ -12,7 +12,8 @@ def create_dataloader(dataset, dataset_opt, phase):
             batch_size=dataset_opt['batch_size'],
             shuffle=dataset_opt['use_shuffle'],
             num_workers=dataset_opt['num_workers'],
-            pin_memory=True)
+            pin_memory=True,
+            drop_last=True)
     elif phase == 'val':
         return torch.utils.data.DataLoader(
             dataset, batch_size=1, shuffle=False, num_workers=1, pin_memory=True)
@@ -37,3 +38,48 @@ def create_dataset(dataset_opt, phase):
     logger.info('Dataset [{:s} - {:s}] is created.'.format(dataset.__class__.__name__,
                                                            dataset_opt['name']))
     return dataset
+
+############## Frames Dataset ##############
+def create_frames_dataset(dataset_opt, phase):
+    '''
+    Create dataset from multiple frames of videos.
+    '''
+    mode = dataset_opt['mode'] 
+    from data.LRHR_dataset import LRHRFramesDataset as D  
+    dataset = D(dataroot=dataset_opt['dataroot'],  
+                #datatype=dataset_opt['datatype'], # default img type
+                l_resolution=dataset_opt['l_resolution'],
+                r_resolution=dataset_opt['r_resolution'],
+                split=phase,
+                data_len=dataset_opt['data_len'],
+                need_LR=(mode == 'LRHR')
+                )
+    logger = logging.getLogger('base') 
+    logger.info('Dataset [{:s} - {:s}] is created.'.format(dataset.__class__.__name__, 
+                                                           dataset_opt['name']))
+    return dataset
+
+
+def create_frames_dataloader(dataset, dataset_opt, phase):
+    '''Create dataloader'''
+    
+    # filter None items
+    def collate_fn(batch):
+      batch = list(filter(lambda x: x is not None, batch))
+      return torch.utils.data.dataloader.default_collate(batch)
+    
+    if phase == 'train': 
+        return torch.utils.data.DataLoader(
+            dataset,
+            batch_size=dataset_opt['batch_size'],
+            shuffle=dataset_opt['use_shuffle'],
+            num_workers=dataset_opt['num_workers'],
+            pin_memory=True,
+            collate_fn=collate_fn)
+      
+    elif phase == 'val':
+        return torch.utils.data.DataLoader(
+            dataset, batch_size=1, shuffle=False, num_workers=1, pin_memory=True, collate_fn=collate_fn)
+    else:
+        raise NotImplementedError(
+            'Dataloader [{:s}] is not found.'.format(phase))

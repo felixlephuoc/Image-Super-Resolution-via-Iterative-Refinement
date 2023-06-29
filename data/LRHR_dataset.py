@@ -97,3 +97,56 @@ class LRHRDataset(Dataset):
             [img_SR, img_HR] = Util.transform_augment(
                 [img_SR, img_HR], split=self.split, min_max=(-1, 1))
             return {'HR': img_HR, 'SR': img_SR, 'Index': index}
+
+
+class LRHRFramesDataset(Dataset):
+    def __init__(self, dataroot, l_resolution=64, r_resolution=512, split='train', data_len=-1,
+                 need_LR=False, n_frames=3):
+        """
+        Custom dataset class for LRHR frames.  
+        The data type should be image files Only
+        """
+        self.l_res = l_resolution
+        self.r_res = r_resolution
+        self.data_len = data_len
+        self.need_LR = need_LR
+        self.split = split
+        self.n_frames = n_frames
+
+        self.sr_path = Util.get_paths_from_frames('{}/sr_{}_{}'.format(dataroot, l_resolution, r_resolution))
+        self.hr_path = Util.get_paths_from_frames('{}/hr_{}'.format(dataroot, r_resolution))
+
+        # Check if low-resolution images are needed
+        if self.need_LR:
+            self.lr_path = Util.get_paths_from_frames('{}/lr_{}'.format(dataroot, l_resolution))
+        # Specify length of dataset
+        self.dataset_len = len(self.hr_path)
+        if self.data_len <= 0:
+            self.data_len = self.dataset_len
+        else:
+            self.data_len = min(self.data_len, self.dataset_len)
+
+    def __len__(self):
+        return self.data_len
+    
+
+    def __getitem__(self, index):
+        frames_HR = None
+        frames_LR = None
+        frames_SR = None
+        
+        frames_HR = Util.read_concat(self.hr_path[index], self.n_frames, high_resolution=True)
+        frames_SR = Util.read_concat(self.sr_path[index], self.n_frames)
+        if (frames_HR is None) or (frames_SR is None):
+            return None
+        
+        if self.need_LR:
+            frames_LR = Util.read_concat(self.lr_path[index])
+        if self.need_LR:
+            [frames_LR, frames_SR, frames_HR] = Util.transform_augment_frames(
+                [frames_LR, frames_SR, frames_HR], split=self.split, min_max=(-1, 1))
+            return {'LR': frames_LR, 'HR': frames_HR, 'SR': frames_SR, 'Index': index}
+        else:
+            [frames_SR, frames_HR] = Util.transform_augment_frames(
+                [frames_SR, frames_HR], split=self.split, min_max=(-1, 1))
+            return {'HR': frames_HR, 'SR': frames_SR, 'Index': index}
