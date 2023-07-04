@@ -50,22 +50,35 @@ if __name__ == "__main__":
     else:
         wandb_logger = None
 
-    # dataset
-    for phase, dataset_opt in opt['datasets'].items():
-        if phase == 'train' and args.phase != 'val':
-            train_set = Data.create_dataset(dataset_opt, phase)
-            train_loader = Data.create_dataloader(
-                train_set, dataset_opt, phase)
-        elif phase == 'val':
-            val_set = Data.create_dataset(dataset_opt, phase)
-            val_loader = Data.create_dataloader(
-                val_set, dataset_opt, phase)
-    logger.info('Initial Dataset Finished')
+    if opt['multiframes']:
+        # multi frames dataset 
+        for phase, dataset_opt in opt['datasets'].items():
+            if phase == 'train' and args.phase != 'val':
+                train_set = Data.create_frames_dataset(dataset_opt, phase)
+                train_loader = Data.create_frames_dataloader(train_set, dataset_opt, phase)
+            elif phase == 'val':
+                val_set = Data.create_frames_dataset(dataset_opt, phase)
+                val_loader = Data.create_frames_dataloader(val_set, dataset_opt, phase)
+                logger.info('Initial Dataset Finished')
+    else:
+        # single image dataset
+        for phase, dataset_opt in opt['datasets'].items():
+            if phase == 'train' and args.phase != 'val':
+                train_set = Data.create_dataset(dataset_opt, phase)
+                train_loader = Data.create_dataloader(
+                    train_set, dataset_opt, phase)
+            elif phase == 'val':
+                val_set = Data.create_dataset(dataset_opt, phase)
+                val_loader = Data.create_dataloader(
+                    val_set, dataset_opt, phase)
+        logger.info('Initial Dataset Finished')
+        
+        
 
     # model
     diffusion = Model.create_model(opt)
     logger.info('Initial Model Finished')
-
+            
     # Train
     current_step = diffusion.begin_step
     current_epoch = diffusion.begin_epoch
@@ -118,20 +131,24 @@ if __name__ == "__main__":
                         hr_img = Metrics.tensor2img(visuals['HR'])  # uint8
                         lr_img = Metrics.tensor2img(visuals['LR'])  # uint8
                         fake_img = Metrics.tensor2img(visuals['INF'])  # uint8
-
                         # generation
-                        Metrics.save_img(
+                        Metrics.save_frames(
                             hr_img, '{}/{}_{}_hr.png'.format(result_path, current_step, idx))
-                        Metrics.save_img(
+                        Metrics.save_frames(
                             sr_img, '{}/{}_{}_sr.png'.format(result_path, current_step, idx))
-                        Metrics.save_img(
-                            lr_img, '{}/{}_{}_lr.png'.format(result_path, current_step, idx))
-                        Metrics.save_img(
-                            fake_img, '{}/{}_{}_inf.png'.format(result_path, current_step, idx))
+                        Metrics.save_frames(
+                            lr_img, '{}/{}_{}_lr.png'.format(result_path, current_step, idx), 
+                            n_frames=opt['model']['diffusion']['n_frames'])
+                        Metrics.save_frames(
+                            fake_img, '{}/{}_{}_inf.png'.format(result_path, current_step, idx), 
+                            n_frames=opt['model']['diffusion']['n_frames'])
+                        
+                        # add images to tensorboard
+                        fake_frames = np.split(fake_img, opt['model']['diffusion']['n_frames'], 2)
                         tb_logger.add_image(
                             'Iter_{}'.format(current_step),
                             np.transpose(np.concatenate(
-                                (fake_img, sr_img, hr_img), axis=1), [2, 0, 1]),
+                                fake_frames + [sr_img, hr_img], axis=1), [2, 0, 1]),
                             idx)
                         avg_psnr += Metrics.calculate_psnr(
                             sr_img, hr_img)
@@ -139,7 +156,7 @@ if __name__ == "__main__":
                         if wandb_logger:
                             wandb_logger.log_image(
                                 f'validation_{idx}', 
-                                np.concatenate((fake_img, sr_img, hr_img), axis=1)
+                                np.concatenate(fake_frames + [sr_img, hr_img], axis=1)
                             )
 
                     avg_psnr = avg_psnr / idx
@@ -199,17 +216,18 @@ if __name__ == "__main__":
                         Metrics.tensor2img(sr_img[iter]), '{}/{}_{}_sr_{}.png'.format(result_path, current_step, idx, iter))
             else:
                 # grid img
-                sr_img = Metrics.tensor2img(visuals['SR'])  # uint8
-                Metrics.save_img(
-                    sr_img, '{}/{}_{}_sr_process.png'.format(result_path, current_step, idx))
-                Metrics.save_img(
+                sr_img = Metrics.tensor2img(visuals['SR'], n_frames=opt['model']['diffusion']['n_frames'])  # uint8
+                Metrics.save_frames(
+                    sr_img, '{}/{}_{}_sr_process.png'.format(result_path, current_step, idx),
+                    n_frames=opt['model']['diffusion']['n_frames'], grid=True)
+                Metrics.save_frames(
                     Metrics.tensor2img(visuals['SR'][-1]), '{}/{}_{}_sr.png'.format(result_path, current_step, idx))
 
-            Metrics.save_img(
+            Metrics.save_frames(
                 hr_img, '{}/{}_{}_hr.png'.format(result_path, current_step, idx))
-            Metrics.save_img(
+            Metrics.save_frames(
                 lr_img, '{}/{}_{}_lr.png'.format(result_path, current_step, idx))
-            Metrics.save_img(
+            Metrics.save_frames(
                 fake_img, '{}/{}_{}_inf.png'.format(result_path, current_step, idx))
 
             # generation
