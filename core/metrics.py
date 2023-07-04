@@ -5,7 +5,7 @@ import cv2
 from torchvision.utils import make_grid
 
 
-def tensor2img(tensor, out_type=np.uint8, min_max=(-1, 1)):
+def tensor2img(tensor, out_type=np.uint8, min_max=(-1, 1), n_frames=3):
     '''
     Converts a torch Tensor into an image Numpy array
     Input: 4D(B,(3/1),H,W), 3D(C,H,W), or 2D(H,W), any range, RGB channel order
@@ -16,9 +16,7 @@ def tensor2img(tensor, out_type=np.uint8, min_max=(-1, 1)):
         (min_max[1] - min_max[0])  # to range [0,1]
     n_dim = tensor.dim()
     if n_dim == 4:
-        n_img = len(tensor)
-        img_np = make_grid(tensor, nrow=int(
-            math.sqrt(n_img)), normalize=False).numpy()
+        img_np = make_grid(tensor, nrow=n_frames, normalize=False).numpy()
         img_np = np.transpose(img_np, (1, 2, 0))  # HWC, RGB
     elif n_dim == 3:
         img_np = tensor.numpy()
@@ -38,6 +36,26 @@ def save_img(img, img_path, mode='RGB'):
     cv2.imwrite(img_path, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
     # cv2.imwrite(img_path, img)
 
+def save_frames(img, img_path, mode='RGB',n_frames=3, grid=False):
+    if img.shape[-1] > 3:
+        H, W, _ = img.shape
+        frames = np.split(img, n_frames, axis=2)
+        output_img = np.zeros((H, W * n_frames, 3), dtype=np.uint8)
+        for i, frame in enumerate(frames):
+            output_img[:, i*W:(i+1)*W, :] = frame
+        cv2.imwrite(img_path, cv2.cvtColor(output_img, cv2.COLOR_RGB2BGR))
+    else:
+        if grid:
+            _, W, _ = img.shape
+            middle_idx = n_frames // 2
+            frame_size = int(W/n_frames)
+            highlighted_img = img.copy()
+            cv2.rectangle(highlighted_img, (0,0), (W-1, frame_size), (0,0,255), 2)
+            cv2.rectangle(highlighted_img, (middle_idx * frame_size, 2), ((middle_idx+1)*frame_size, frame_size-2), (255,0,0), 1)
+            cv2.imwrite(img_path, cv2.cvtColor(highlighted_img, cv2.COLOR_RGB2BGR))
+        else:
+            cv2.imwrite(img_path, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+       
 
 def calculate_psnr(img1, img2):
     # img1 and img2 have range [0, 255]
