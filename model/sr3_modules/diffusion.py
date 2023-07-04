@@ -67,6 +67,7 @@ class GaussianDiffusion(nn.Module):
         denoise_fn,
         image_size,
         channels=3,
+        n_frames=3,
         loss_type='l1',
         conditional=True,
         schedule_opt=None
@@ -74,6 +75,7 @@ class GaussianDiffusion(nn.Module):
         super().__init__()
         self.channels = channels
         self.image_size = image_size
+        self.n_frames = n_frames
         self.denoise_fn = denoise_fn
         self.loss_type = loss_type
         self.conditional = conditional
@@ -187,9 +189,15 @@ class GaussianDiffusion(nn.Module):
                     ret_img = torch.cat([ret_img, img], dim=0)
         else:
             x = x_in
-            shape = x.shape
+            shape = list(x.shape)
+            shape[1] = int(shape[1] / self.n_frames) # Number of channels in the output image.
             img = torch.randn(shape, device=device)
-            ret_img = x
+            if x.shape[1] > 3: # multi frames
+                ret_img = torch.split(x, self.n_frames, dim=1)
+                ret_img = torch.cat(ret_img, dim=0)
+            else: # single image
+                ret_img = x
+            
             for i in tqdm(reversed(range(0, self.num_timesteps)), desc='sampling loop time step', total=self.num_timesteps):
                 img = self.p_sample(img, i, condition_x=x)
                 if i % sample_inter == 0:
@@ -241,7 +249,7 @@ class GaussianDiffusion(nn.Module):
         else:
             x_recon = self.denoise_fn(
                 torch.cat([x_in['SR'], x_noisy], dim=1), continuous_sqrt_alpha_cumprod)
-
+        
         loss = self.loss_func(noise, x_recon)
         return loss
 
