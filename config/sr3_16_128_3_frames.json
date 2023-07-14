@@ -21,7 +21,7 @@
             "datatype": "img", //lmdb or img, path of img files
             "l_resolution": 16, // low resolution need to super_resolution
             "r_resolution": 128, // high resolution
-            "batch_size": 4,
+            "batch_size": 16,
             "num_workers": 8,
             "use_shuffle": true,
             "data_len": -1 // -1 represents all data used in train
@@ -33,7 +33,7 @@
             "datatype": "img", //lmdb or img, path of img files
             "l_resolution": 16,
             "r_resolution": 128,
-            "data_len": 100 // data length in validation - Number of images used for Validation
+            "data_len": 20 // data length in validation - Number of images used for Validation
         }
     },
     "model": {
@@ -78,13 +78,13 @@
         }
     },
     "train": {
-        "n_iter": 10000,
-        "val_freq": 1000,
-        "save_checkpoint_freq": 1000,
-        "print_freq": 100,
+        "n_iter": 100000,
+        "val_freq": 10000,
+        "save_checkpoint_freq": 10000,
+        "print_freq": 1000,
         "optimizer": {
             "type": "adam",
-            "lr": 1e-4
+            "lr": 1e-5
         },
         "ema_scheduler": { // not used now
             "step_start_ema": 5000,
