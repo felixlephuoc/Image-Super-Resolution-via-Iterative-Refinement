@@ -134,7 +134,7 @@ def read_concat(frames_paths, n_frames=3, high_resolution=False):
     return concatenated_tensor
 
 
-def transform_augment_frames(frames_list, split='val', min_max=(0, 1), _hflip=True):
+def transform_augment_frames(frames_list, split='val', min_max=(0, 1), _hflip=False):
     """
     Applies data augmentation transformations to a list of frames.
     """
