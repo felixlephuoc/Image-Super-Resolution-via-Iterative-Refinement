@@ -58,13 +58,13 @@
         },
         "beta_schedule": { // use munual beta_schedule for acceleration
             "train": {
-                "schedule": "linear",
+                "schedule": "cosine",
                 "n_timestep": 2000,
                 "linear_start": 1e-6,
                 "linear_end": 1e-2
             },
             "val": {
-                "schedule": "linear",
+                "schedule": "cosine",
                 "n_timestep": 2000,
                 "linear_start": 1e-6,
                 "linear_end": 1e-2
