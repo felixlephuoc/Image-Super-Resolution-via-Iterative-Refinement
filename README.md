@@ -1,221 +1,160 @@
-# Image Super-Resolution via Iterative Refinement
+## Multi-frame Super-Resolution via Iterative Refinement
 
-[Paper](https://arxiv.org/pdf/2104.07636.pdf ) |  [Project](https://iterative-refinement.github.io/ )
+## Introduction
 
-## Brief
+This repository is a fork of [Image Super-Resolution via Iterative Refinement](https://github.com/Janspiry/Image-Super-Resolution-via-Iterative-Refinement), inheriting scripts and code from the original project. The purpose of this fork is to build upon the existing work and add additional features to perform multi-frame super-resolution task.
 
-This is an unofficial implementation of **Image Super-Resolution via Iterative Refinement(SR3)** by **PyTorch**.
+Multi-frame Super-resolution (MFSR) is the process of taking multiple low-resolution (LR) video frames to construct a single high-resolution (HR) frame. This problem is a vital subtask to a more general problem of Video Super-resolution (VSR). On the other hand, Single Image Super-resolution (SSIR), an equivalent process that reconstructs HR image from a given LR image, has achieved significant advancements recently, and can be used partly to tackle VSR. Nevertheless, VSR remains a difficult problem without an optimal solution. Theoretically, the temporal information in a sequence of adjacent frames will allow us to make a more accurate prediction than using a single frame alone. Thus, one can utilize the proven techniques from SSIR to perform super-resolution using multiple frames.
 
-There are some implementation details that may vary from the paper's description, which may be different from the actual `SR3` structure due to details missing. Specifically, we:
+With the rise of deep learning research, the convolutional neural network (CNN)-based SSIR algorithms have shown excellent performance and advancement. The Super-resolution Convolutional Neural Network (SRCNN) algorithm [1] applies CNN to image super-resolution problem for the first time, which presents a significant improvement to traditional methods. Following this approach, VDSR algorithm [2] employs a very deep residual network and also demonstrates desirable results. By minimizing the mean squared reconstruction error, these methods could achieve high peak signal-to-noise ratio (PSNR). However, the super-resolved images often lack high-frequency details, making them become perceptually unsatisfying and fail to match the expected fidelity. In order to solve the problem of overly smooth reconstructed images and loss of high-frequency texture, Super-resolution Generative Adversarial Network (SRGAN) algorithm [3] designs a loss function closer to perceptual similarity instead of similarity in pixel space. The reconstruction result is indeed more photo-realistic and visually convincing than other existing methods. Nevertheless, the inner-outer loop optimization in GAN often requires tricks to stabilize training, and conditional tasks like super-resolution usually require an auxiliary consistency-based loss to avoid mode collapse [4].
 
-- Used the ResNet block and channel concatenation style like vanilla `DDPM`.
-- Used the attention mechanism in low-resolution features ( $16 \times 16$ ) like vanilla `DDPM`.
-- Encode the $\gamma$ as `FilM` structure did in `WaveGrad`, and embed it without affine transformation.
-- Define the posterior variance as $\dfrac{1-\gamma_{t-1}}{1-\gamma_{t}} \beta_t$  rather than $\beta_t$,  which gives similar results to the vanilla paper.
+Within the scope of a personal project, we take advantages of the SR3 algorithm [4], which perform SSIR via iterative refinements, to solve the problem of MFSR. SR3 works by adapting Denoising Diffusion Probabilistic Models (DDPM) [5] to conditional image generation and performs super-resolution through a stochastic iterative denoising process. The output generation starts with a pure Gaussian noise and iteratively refines the noisy image through a sequence of steps. This process uses a U-Net model trained on denoising at various noise level. Different from GANs that rely on inner-loop maximization, SR3 minimizes a well-defined loss function, and consistently yields super-resolution outcomes that are comparable in quality to SRGAN. In our approach, we tweak the SR3 model with some minor modifications to perform multi-frame super-resolution. Our main adjustment is using the training input data consisting of multiple frames extracted from videos instead of using static images. We experiment with different noise schedules and number of time steps, while retaining other hyperparameters in the original paper [4]. The model is trained on a dataset of frames from videos in CelebV-HQ Dataset [6]. Due to limited computational resources,  we can only perform the training for a moderate number of iterations. While the super-resolution frames fall short of the expected fidelity, they exhibit promising potentials. We anticipate that an increase in the number of training steps alongside appropriate fine-tuning will enhance the outcome.
 
-**If you just want to upscale $(64 \times 64)\text{px} \rightarrow (512 \times 512)\text{px}$ images using the pre-trained model, check out [this google colab script](https://colab.research.google.com/drive/1G1txPI1GKueKH0cSi_DgQFKwfyJOXlhY?usp=sharing).**
+## Table of Contents
 
-## Status
+## Installation
 
-**★★★ NEW: The follow-up [Palette-Image-to-Image-Diffusion-Models](https://arxiv.org/abs/2111.05826) is now available; See the details [here](https://github.com/Janspiry/Palette-Image-to-Image-Diffusion-Models) ★★★**
+Prepare the environment
 
-### Conditional Generation (with Super Resolution)
-
-- [x] 16×16 -> 128×128 on FFHQ-CelebaHQ
-- [x] 64×64 -> 512×512 on FFHQ-CelebaHQ
-
-### Unconditional Generation
-
-- [x] 128×128 face generation on FFHQ
-- [ ] ~~1024×1024 face generation by a cascade of 3 models~~
-
-### Training Step
-
-- [x] log / logger
-- [x] metrics evaluation
-- [x] multi-gpu support
-- [x] resume training / pretrained model
-- [x] validate alone script
-- [x] [Weights and Biases Logging](https://github.com/Janspiry/Image-Super-Resolution-via-Iterative-Refinement/pull/44) 🌟 NEW
-
-
-
-## Results
-
-*Note:*  We set the maximum reverse steps budget to $2000$. We limited the model parameters in `Nvidia 1080Ti`, **image noise** and **hue deviation** occasionally appear in high-resolution images, resulting in low scores.  There is a lot of room for optimization.  **We are welcome to any contributions for more extensive experiments and code enhancements.**
-
-| Tasks/Metrics        | SSIM(+) | PSNR(+) | FID(-)  | IS(+)   |
-| -------------------- | ----------- | -------- | ---- | ---- |
-| 16×16 -> 128×128 | 0.675       | 23.26    | - | - |
-| 64×64 -> 512×512     | 0.445 | 19.87 | - | - |
-| 128×128 | - | - | | |
-| 1024×1024 | - | - |      |      |
-
-- #### 16×16 -> 128×128 on FFHQ-CelebaHQ [[More Results](https://drive.google.com/drive/folders/1Vk1lpHzbDf03nME5fV9a-lWzSh3kMK14?usp=sharing)]
-
-| <img src="./misc/sr_process_16_128_0.png" alt="show" style="zoom:90%;" /> |  <img src="./misc/sr_process_16_128_1.png" alt="show" style="zoom:90%;" />    |   <img src="./misc/sr_process_16_128_2.png" alt="show" style="zoom:90%;" />   |
-| ------------------------------------------------------------ | ---- | ---- |
-
-- #### 64×64 -> 512×512 on FFHQ-CelebaHQ [[More Results](https://drive.google.com/drive/folders/1yp_4xChPSZUeVIgxbZM-e3ZSsSgnaR9Z?usp=sharing)]
-
-| <img src="./misc/sr_64_512_0_inf.png" alt="show" style="zoom:90%;" /> | <img src="./misc/sr_64_512_0_sr.png" alt="show" style="zoom:90%;" /> | <img src="./misc/sr_64_512_0_hr.png" alt="show" style="zoom:90%;" /> |
-| ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| <img src="./misc/sr_64_512_1_sr.png" alt="show" style="zoom:90%;" /> | <img src="./misc/sr_64_512_2_sr.png" alt="show" style="zoom:90%;" /> | <img src="./misc/sr_64_512_3_sr.png" alt="show" style="zoom:90%;" /> |
-
-- #### 128×128 face generation on FFHQ [[More Results](https://drive.google.com/drive/folders/13AsjRwDw4wMmL0bK7wPd2rP7ds7eyAMh?usp=sharing)]
-
-| <img src="./misc/sample_process_128_0.png" alt="show" style="zoom:90%;" /> |  <img src="./misc/sample_process_128_1.png" alt="show" style="zoom:90%;" />    |   <img src="./misc/sample_process_128_2.png" alt="show" style="zoom:90%;" />   |
-| ------------------------------------------------------------ | ---- | ---- |
-
-
-
-## Usage
-### Environment
-```python
+```bash
 pip install -r requirement.txt
 ```
 
-### Pretrained Model
+## Dataset
 
-This paper is based on "Denoising Diffusion Probabilistic Models", and we build both DDPM/SR3 network structures, which use timesteps/gamma as model embedding inputs, respectively. In our experiments, the SR3 model can achieve better visual results with the same reverse steps and learning rate. You can select the JSON files with annotated suffix names to train the different models.
+I trained the SR3 model on the frames extracted from videos in [CelebV-HQ Video Dataset](https://celebv-hq.github.io/). To download the CelebV-HQ videos and extract frames from those videos, please follow the guide in this repository [Download, process and extract frames from CelebV-HQ videos](https://github.com/felixlephuoc/Download-Process-CelebV-HQ.git).
 
-| Tasks                             | Platform（Code：qwer)                                        | 
-| --------------------------------- | ------------------------------------------------------------ |
-| 16×16 -> 128×128 on FFHQ-CelebaHQ | [Google Drive](https://drive.google.com/drive/folders/12jh0K8XoM1FqpeByXvugHHAF3oAZ8KRu?usp=sharing)\|[Baidu Yun](https://pan.baidu.com/s/1OzsGZA2Vmq1ZL_VydTbVTQ) |  
-| 64×64 -> 512×512 on FFHQ-CelebaHQ | [Google Drive](https://drive.google.com/drive/folders/1mCiWhFqHyjt5zE4IdA41fjFwCYdqDzSF?usp=sharing)\|[Baidu Yun](https://pan.baidu.com/s/1orzFmVDxMmlXQa2Ty9zY3g) |   
-| 128×128 face generation on FFHQ   | [Google Drive](https://drive.google.com/drive/folders/1ldukMgLKAxE7qiKdFJlu-qubGlnW-982?usp=sharing)\|[Baidu Yun](https://pan.baidu.com/s/1Vsd08P1A-48OGmnRV0E7Fg ) | 
+## Usage
 
-```python
-# Download the pretrained model and edit [sr|sample]_[ddpm|sr3]_[resolution option].json about "resume_state":
-"resume_state": [your pretrained model's path]
+### Data processing
+
+Once you have the frames dataset extracted from CelebV-HQ videos, you can process it to get the low-resolution (LR), high-resolution (HR) and the "fake" super-resolution (SR) frames in PNG format using the script below. The "fake" SR frames are upscaled from the LR frames to the resolution of HR frames using bicubic interpolation.
+
+```bash
+python3 data/prepare_data.py  --frames_path [dataset root] --n_frames 3 --interval [temporal stride] --split [train/val] --out [output root] --size 16,128
 ```
 
-### Data Prepare
+The directory containing processed frames should be organized like this:
 
-#### New Start
-
-If you didn't have the data, you can prepare it by following steps:
-
-- [FFHQ 128×128](https://github.com/NVlabs/ffhq-dataset) | [FFHQ 512×512](https://www.kaggle.com/arnaud58/flickrfaceshq-dataset-ffhq)
-- [CelebaHQ 256×256](https://www.kaggle.com/badasstechie/celebahq-resized-256x256) | [CelebaMask-HQ 1024×1024](https://drive.google.com/file/d/1badu11NqxGf6qM3PTTooQDJvQbejgbTv/view)
-
-Download the dataset and prepare it in **LMDB** or **PNG** format using script.
-
-```python
-# Resize to get 16×16 LR_IMGS and 128×128 HR_IMGS, then prepare 128×128 Fake SR_IMGS by bicubic interpolation
-python data/prepare_data.py  --path [dataset root]  --out [output root] --size 16,128 -l
+```bash
+celebvhq_frames_16_128/
+	├── hr_128
+	│   ├── video_id_1
+	│   │   ├── frame_0_hr_128.png
+	│   │   ├── frame_1_hr_128.png
+	│   │   └── frame_2_hr_128.png
+	│   ├── video_id_2
+	│   └── ...
+	├── lr_16
+	│   ├── video_id_1
+	│   │   ├── frame_0_lr_16.png
+	│   │   ├── frame_1_lr_16.png
+	│   │   └── frame_2_lr_16.png
+	│   ├── video_id_2
+	│   └── ...
+	└── sr_16_128
+    	    ├── video_id_1
+    	    │   ├── frame_0_sr_128.png
+    	    │   ├── frame_1_sr_128.png
+    	    │   └── frame_2_sr_128.png
+    	    ├── video_id_2
+    	    └── ...
 ```
 
-then you need to change the datasets config to your data path and image resolution: 
+### Configuration
+
+In the config file, you need to specify the paths to train and validation dataset as well as the image resolutions.
 
 ```json
-"datasets": {
-    "train": {
-        "dataroot": "dataset/ffhq_16_128", // [output root] in prepare.py script
-        "l_resolution": 16, // low resolution need to super_resolution
-        "r_resolution": 128, // high resolution
-        "datatype": "lmdb", //lmdb or img, path of img files
+    "datasets": {
+        "train": {
+            "name": "CelebV-HQ",
+            "dataroot": "dataset/celebvhq_frames_16_128_train",
+            "datatype": "img", //lmdb or img
+            "l_resolution": 16, // low resolution need to super_resolution
+            "r_resolution": 128, // high resolution
+            "batch_size": 16,
+            "data_len": -1 // -1 represents all data used in train
+	    ...
+        },
+        "val": {
+            "name": "CelebV-HQ",
+            "dataroot": "dataset/celebvhq_frames_16_128_val",
+            "datatype": "img",
+            "l_resolution": 16,
+            "r_resolution": 128,
+            "data_len": 100 //number of samples used in validation
+            ...
+        }
     },
-    "val": {
-        "dataroot": "dataset/celebahq_16_128", // [output root] in prepare.py script
-    }
-},
 ```
 
-#### Own Data
+You can also edit the json config file to adjust the network architecture and other hyperparameters.
 
-You also can use your image data by following steps, and we have some examples in dataset folder.
+### Training
 
-At first, you should organize the images layout like this, this step can be finished by `data/prepare_data.py` automatically:
+Run the `sr.py` script to start or resume training process:
 
-```shell
-# set the high/low resolution images, bicubic interpolation images path 
-dataset/celebahq_16_128/
-├── hr_128 # it's same with sr_16_128 directory if you don't have ground-truth images.
-├── lr_16 # vinilla low resolution images
-└── sr_16_128 # images ready to super resolution
+```bash
+python3 sr.py -c config/sr3_frames_16_128.json -p train
 ```
 
-```python
-# super resolution from 16 to 128
-python data/prepare_data.py  --path [dataset root]  --out celebahq --size 16,128 -l
-```
+### Evaluation
 
-*Note: Above script can be used whether you have the vanilla high-resolution images or not.*
-
-then you need to change the dataset config to your data path and image resolution: 
+Edit the json files to add the pretrained model path:
 
 ```json
-"datasets": {
-    "train|val": { // train and validation part
-        "dataroot": "dataset/celebahq_16_128",
-        "l_resolution": 16, // low resolution need to super_resolution
-        "r_resolution": 128, // high resolution
-        "datatype": "img", //lmdb or img, path of img files
+    "path": {
+        "resume_state": "pretrained_model/I200000_E110" //pretrain model or training state
     }
-},
 ```
 
-### Training/Resume Training
+Run the evaluation using `sr.py` script:
 
-```python
-# Use sr.py and sample.py to train the super resolution task and unconditional generation task, respectively.
-# Edit json files to adjust network structure and hyperparameters
-python sr.py -p train -c config/sr_sr3.json
+```bash
+python3 sr.py -c config/sr3_frames_16_128.json -p val
 ```
 
-### Test/Evaluation
+## Result
 
-```python
-# Edit json to add pretrain model path and run the evaluation 
-python sr.py -p val -c config/sr_sr3.json
+The model is trained on a single Nvidia V100 GPU for a moderate number of iterations. Moreover, the image noise and hue deviation occasionally appear in the high-resolution frames, resulting in low scores. There is still a lot of room for further optimization. All contributions to improve the results are welcome.
 
-# Quantitative evaluation alone using SSIM/PSNR metrics on given result root
-python eval.py -p [result root]
-```
+### Automated Metrics
 
-### Inference Alone
+|       Tasks/Metrics       | SSIM (+) | PSNR (+) |
+| :-----------------------: | :------: | :------: |
+| 16 x 16&rarr; 128 x 128 |   0.51   |  18.37  |
+| 64 x 64&rarr; 512 x 512 |    -    |    -    |
 
-Set the  image path like steps in `Own Data`, then run the script:
+### Qualitative Results
 
-```python
-# run the script
-python infer.py -c [config file]
-```
+- #### 16 x 16 &rarr; 128 x 128 Super-resolution on CelebV-HQ
 
-## Weights and Biases 🎉
+  The visualizations of sampling procedure are shown below. The frames inside blue box are the upscaled LR input frames. The frame inside red box is the target frame that we want to super-resolve. The inference process starts from pure noise and go through a number of refinement steps to produce the final super-resolved frame. We set the maximum number of timesteps $T=2000$. Each intermediate output frame in the grid images represents the result after 200 denoising iterations. The reference HR frames are not included because of privacy concern.
 
-The library now supports experiment tracking, model checkpointing and model prediction visualization with [Weights and Biases](https://wandb.ai/site). You will need to [install W&B](https://pypi.org/project/wandb/) and login by using your [access token](https://wandb.ai/authorize). 
+  | ![Image 1](./misc/sr_frames_processed_16_128_6.png) | ![Image 2](./misc/sr_frames_processed_16_128_0.png) | ![Image 3](./misc/sr_frames_processed_16_128_3.png) |
+  | ------------------------------------------------- | ------------------------------------------------- | ------------------------------------------------- |
 
-```
-pip install wandb
+  | ![Image 1](./misc/sr_frames_processed_16_128_5.png) | ![Image 2](./misc/sr_frames_processed_16_128_4.png) | ![Image 3](./misc/sr_frames_processed_16_128_7.png) |
+  | ------------------------------------------------- | ------------------------------------------------- | ------------------------------------------------- |
+- #### 64 x 64 &rarr; 512 x 512 Super-resolution on CelebV-HQ
 
-# get your access token from wandb.ai/authorize
-wandb login
-```
+  - [ ] TODO
 
-W&B logging functionality is added to the `sr.py`, `sample.py` and `infer.py` files. You can pass `-enable_wandb` to start logging.
+## Acknowledgement
 
-- `-log_wandb_ckpt`: Pass this argument along with `-enable_wandb` to save model checkpoints as [W&B Artifacts](https://docs.wandb.ai/guides/artifacts). Both `sr.py` and `sample.py` is enabled with model checkpointing. 
-- `-log_eval`: Pass this argument along with `-enable_wandb` to save the evaluation result as interactive [W&B Tables](https://docs.wandb.ai/guides/data-vis). Note that only `sr.py` is enabled with this feature. If you run `sample.py` in eval mode, the generated images will automatically be logged as image media panel. 
-- `-log_infer`: While running `infer.py` pass this argument along with `-enable_wandb` to log the inference results as interactive W&B Tables. 
+I sincerely thank Profesor Michal Fabinger for his guidance and support while conducting this project.
 
-You can find more on using these features [here](https://github.com/Janspiry/Image-Super-Resolution-via-Iterative-Refinement/pull/44). 🚀
+## References
 
+[1]  C. Dong, C. C. Loy, K. He, and X. Tang, "Image super-resolution using deep convolutional networks," *IEEE Trans. Pattern Anal. Mach. Intell.*, vol. 38, no. 2, pp. 295–307, Feb. 2016
 
-## Acknowledgements
+[2] J. Kim, J. K. Lee, and K. M. Lee, "Accurate image super-resolution using very deep convolutional networks," in *Proc. IEEE Conf. Comput. Vis.Pattern Recognit. (CVPR),* Jun. 2016, pp. 1646–1654
 
-Our work is based on the following theoretical works:
+[3] C. Ledig et al., "Photo-Realistic Single Image Super-Resolution Using a Generative Adversarial Network," 2017 IEEE Conference on Computer Vision and Pattern Recognition (CVPR), Honolulu, HI, USA, 2017, pp. 105-114, doi: 10.1109/CVPR.2017.19.
 
-- [Denoising Diffusion Probabilistic Models](https://arxiv.org/pdf/2006.11239.pdf)
-- [Image Super-Resolution via Iterative Refinement](https://arxiv.org/pdf/2104.07636.pdf)
-- [WaveGrad: Estimating Gradients for Waveform Generation](https://arxiv.org/abs/2009.00713)
-- [Large Scale GAN Training for High Fidelity Natural Image Synthesis](https://arxiv.org/abs/1809.11096)
+[4] C. Saharia, J. Ho, W. Chan, T. Salimans, D. J. Fleet and M. Norouzi, "Image Super-Resolution via Iterative Refinement," in  *IEEE Transactions on Pattern Analysis and Machine Intelligence* , vol. 45, no. 4, pp. 4713-4726, 1 April 2023, doi: 10.1109/TPAMI.2022.3204461.
 
-Furthermore, we are benefitting a lot from the following projects:
+[5] Jonathan Ho, Ajay Jain, and Pieter Abbeel. Denoising diffusion probabilistic models. arXiv:2006.11239, 2020.
 
-- https://github.com/bhushan23/BIG-GAN
-- https://github.com/lmnt-com/wavegrad
-- https://github.com/rosinality/denoising-diffusion-pytorch
-- https://github.com/lucidrains/denoising-diffusion-pytorch
-- https://github.com/hejingwenhejingwen/AdaFM
+[6] Zhu, H., Wu, W., Zhu, W., Jiang, L., Tang, S., Zhang, L., Liu, Z., & Loy, C.C. CelebV-HQ: A Large-Scale Video Facial Attributes Dataset. arXiv:2207.12393, 2022.
